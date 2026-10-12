@@ -7,7 +7,7 @@
 </head><body>
 <title>Tilt Marble Maze</title>
 <style>
-/* Layout: one-screen app — slim HUD on top, one or two wooden boards filling the stage, controls along the bottom. */
+/* Layout: one-screen app — slim HUD on top, wooden boards filling the stage, settings steppers and mode toggles along the bottom. */
 :root{
   --bg:#1c1410;        /* dark walnut surround */
   --ink:#f3e6d3;
@@ -22,9 +22,12 @@
 [hidden]{display:none!important}
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-user-select:none;user-select:none;touch-action:none}
-.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px;padding-inline:16px;box-sizing:border-box}
+.app{height:100%;display:flex;flex-direction:column;gap:8px;padding-block:10px;padding-inline:16px;box-sizing:border-box}
 .hud{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .hud h1{font-family:var(--display);font-weight:700;font-size:1.35rem;margin:0;letter-spacing:.01em}
+.left{display:flex;flex-direction:column;gap:2px;min-width:0}
+#mode{font-size:.75rem;color:var(--muted);line-height:1.3}
+#mode.flash{color:var(--accent)}
 .right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .stats{display:flex;gap:16px;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.85rem;color:var(--muted)}
 .stats b{color:var(--ink);font-weight:500}
@@ -40,20 +43,30 @@ canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
 .card{background:rgba(28,20,16,.94);border:1px solid #4a3220;border-radius:14px;padding:22px 20px;max-width:320px;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;text-align:left}
 .card h2{font-family:var(--display);font-size:1.6rem;margin:0;text-wrap:balance}
 .card p{margin:0;line-height:1.45;color:var(--muted);font-size:.95rem}
-button{font:600 1rem var(--body);border:0;border-radius:10px;padding:13px 16px;background:var(--accent);color:#2a1a08;cursor:pointer}
+button{font:600 1rem var(--body);border:0;border-radius:10px;padding:13px 16px;background:var(--accent);color:#2a1a08;cursor:pointer;touch-action:manipulation}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 button.ghost[aria-pressed="true"]{background:var(--accent);color:#2a1a08;border-color:var(--accent)}
 button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
-.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.8rem;color:var(--muted);min-height:36px}
-.foot .btns{display:flex;gap:8px;flex-shrink:0}
-.foot button{padding:8px 10px;font-size:.85rem}
-.foot #mode{min-width:0;line-height:1.3}
+button:disabled{opacity:.35}
+.controls{display:flex;flex-direction:column;gap:8px}
+.steppers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stepper{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:2px;min-width:0}
+.stepper button{background:transparent;color:var(--ink);padding:6px 10px;font-size:1.1rem;line-height:1;border-radius:8px}
+.stepper button:active{background:#3b2614}
+.stepper .val{display:flex;flex-direction:column;align-items:center;min-width:0}
+.stepper .lab{font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stepper b{font-family:var(--mono);font-weight:500;font-size:.95rem;font-variant-numeric:tabular-nums}
+.toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.toggles button{padding:9px 6px;font-size:.85rem}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
 
 <div class="app">
   <div class="hud">
-    <h1>Tilt Maze</h1>
+    <div class="left">
+      <h1>Tilt Maze</h1>
+      <span id="mode">Tilt to steer</span>
+    </div>
     <div class="right">
       <div class="stats"><span>Lvl <b id="lvl">1</b></span><span><b id="time">0.0</b>s</span></div>
       <ol class="results" id="results" aria-label="Recent level times"></ol>
@@ -63,15 +76,19 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     <canvas id="c"></canvas>
     <div class="sheet" id="sheet">
       <div class="card">
-        <h2>Roll the marble home</h2>
-        <p>Hold your phone flat and tilt it to steer the steel marble to the green cup. Avoid the holes. Tap Split to run two mazes at once.</p>
+        <h2>Roll the marbles home</h2>
+        <p>Hold your phone the way you want to play and tilt it to steer every marble into the green cup. Avoid the holes. Set skill, speed and marble count below.</p>
         <button id="startBtn">Start</button>
       </div>
     </div>
   </div>
-  <div class="foot">
-    <span id="mode">Tilt to steer</span>
-    <div class="btns">
+  <div class="controls">
+    <div class="steppers">
+      <div class="stepper"><button id="skillDn" aria-label="Lower skill">−</button><span class="val"><span class="lab">Skill</span><b id="skillVal">2</b></span><button id="skillUp" aria-label="Raise skill">+</button></div>
+      <div class="stepper"><button id="speedDn" aria-label="Slower">−</button><span class="val"><span class="lab">Speed</span><b id="speedVal">3</b></span><button id="speedUp" aria-label="Faster">+</button></div>
+      <div class="stepper"><button id="ballsDn" aria-label="Fewer marbles">−</button><span class="val"><span class="lab">Balls</span><b id="ballsVal">1</b></span><button id="ballsUp" aria-label="More marbles">+</button></div>
+    </div>
+    <div class="toggles">
       <button class="ghost" id="chalBtn" aria-pressed="false">Challenge</button>
       <button class="ghost" id="splitBtn" aria-pressed="false">Split</button>
       <button class="ghost" id="calBtn">Re-level</button>
@@ -87,10 +104,25 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
   const $ = id => document.getElementById(id);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-  let SW=0, SH=0;              // stage size in CSS px
+  // ---------- settings ----------
+  const LIMITS = {skill:[1,5], speed:[1,5], balls:[1,5]};
+  const settings = {skill:2, speed:3, balls:1};
+  try{ Object.assign(settings, JSON.parse(localStorage.getItem('tiltmaze')||'{}')); }catch(e){}
+  for(const k in LIMITS) settings[k]=clamp(settings[k]|0||LIMITS[k][0], ...LIMITS[k]);
+  const SPEED_MUL = [0, 0.6, 0.8, 1, 1.3, 1.65];
+  function saveSettings(){ try{ localStorage.setItem('tiltmaze', JSON.stringify(settings)); }catch(e){} }
+  function showSettings(){
+    for(const k in LIMITS){
+      $(k+'Val').textContent = settings[k];
+      $(k+'Dn').disabled = settings[k]<=LIMITS[k][0];
+      $(k+'Up').disabled = settings[k]>=LIMITS[k][1];
+    }
+  }
+
+  let SW=0, SH=0;
   let boards = [];
   let split = false, challenge = false;
-  let tilt = {x:0,y:0}, base = null, rawTilt = {x:0,y:0};
+  let tilt = {x:0,y:0};
   let usingMotion = false, running = false, level = 1, t0 = 0;
   const GAP = 18, FRAME = 7;
 
@@ -108,8 +140,14 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     }
     return g;
   }
+  function openNeighbors(grid,r,c){
+    const k=grid[r][c], out=[];
+    if(!k.n) out.push([r-1,c]); if(!k.s) out.push([r+1,c]);
+    if(!k.e) out.push([r,c+1]); if(!k.w) out.push([r,c-1]);
+    return out;
+  }
 
-  // ---------- areas for 1 or 2 boards ----------
+  // ---------- areas ----------
   function measure(){
     const r = stage.getBoundingClientRect();
     SW = r.width; SH = r.height;
@@ -120,40 +158,80 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
   function areas(n){
     const pad = FRAME+4;
     if(n===1) return [{x:pad,y:pad,w:SW-2*pad,h:SH-2*pad}];
-    if(SH >= SW){ // stack vertically on a portrait phone
+    if(SH >= SW){
       const h=(SH-2*pad-GAP)/2;
       return [{x:pad,y:pad,w:SW-2*pad,h},{x:pad,y:pad+h+GAP,w:SW-2*pad,h}];
     }
     const w=(SW-2*pad-GAP)/2;
     return [{x:pad,y:pad,w,h:SH-2*pad},{x:pad+w+GAP,y:pad,w,h:SH-2*pad}];
   }
-  // pick a grid that suits an area: ~7 cells across the short side
+  // skill sets cells across the short side: narrower aisles as skill rises
   function dimsFor(a, n){
-    const short = n===1 ? 7 : 6;
-    if(a.w <= a.h) return {cols:short, rows:clamp(Math.round(short*a.h/a.w),4,12)};
-    return {rows:short, cols:clamp(Math.round(short*a.w/a.h),4,12)};
+    const short = [0,5,7,9,11,13][settings.skill] - (n===1?0:1);
+    if(a.w <= a.h) return {cols:short, rows:clamp(Math.round(short*a.h/a.w),4,24)};
+    return {rows:short, cols:clamp(Math.round(short*a.w/a.h),4,24)};
   }
 
   // ---------- board ----------
-  function makeBoard(cols, rows, n){
-    const b = {cols, rows, grid:makeMaze(cols, rows), holeCells:[], ball:{x:0,y:0,vx:0,vy:0}, falling:0, done:false};
+  // path distance (in cells) from one cell to every other
+  function distances(grid, r0, c0){
+    const rows=grid.length, cols=grid[0].length;
+    const d=Array.from({length:rows},()=>Array(cols).fill(-1));
+    d[r0][c0]=0; const q=[[r0,c0]];
+    for(let i=0;i<q.length;i++){
+      const [r,c]=q[i];
+      for(const [y,x] of openNeighbors(grid,r,c)) if(d[y][x]<0){ d[y][x]=d[r][c]+1; q.push([y,x]); }
+    }
+    return d;
+  }
+  const shuffle=a=>{ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
+
+  function makeBoard(cols, rows){
+    const grid = makeMaze(cols, rows);
+    const n = settings.balls;
+    const key=(r,c)=>r+','+c, used=new Set();
+    const nearUsed=(r,c)=>[[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dy,dx])=>used.has(key(r+dy,c+dx)));
+    let spawnCells, goalCells;
+    if(n===1){
+      spawnCells=[[0,0]]; goalCells=[[rows-1,cols-1]];
+      used.add(key(0,0)); used.add(key(rows-1,cols-1));
+    } else {
+      // each marble gets a random start and its own cup, a good distance apart along the path
+      spawnCells=[]; goalCells=[];
+      const all=[]; for(let r=0;r<rows;r++)for(let c=0;c<cols;c++) all.push([r,c]);
+      shuffle(all);
+      for(let i=0;i<n;i++){
+        const g = all.find(([r,c])=>!nearUsed(r,c)) || all.find(([r,c])=>!used.has(key(r,c)));
+        used.add(key(...g));
+        const d=distances(grid,...g);
+        let best=null, max=0;
+        for(const [r,c] of all) if(!used.has(key(r,c)) && d[r][c]>max) max=d[r][c];
+        const far=all.filter(([r,c])=>!used.has(key(r,c)) && !nearUsed(r,c) && d[r][c]>=max*0.5);
+        best = far.length ? far[Math.random()*far.length|0]
+             : all.filter(([r,c])=>!used.has(key(r,c))).sort((a,b)=>d[b[0]][b[1]]-d[a[0]][a[1]])[0];
+        used.add(key(...best));
+        goalCells.push(g); spawnCells.push(best);
+      }
+    }
     const dead=[];
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-      const k=b.grid[r][c]; const open=4-(k.n+k.s+k.e+k.w);
-      if(open===1 && !(r===0&&c===0) && !(r===rows-1&&c===cols-1)) dead.push([r,c]);
+      if(openNeighbors(grid,r,c).length===1 && !used.has(key(r,c))) dead.push([r,c]);
     }
-    dead.sort(()=>Math.random()-.5);
+    shuffle(dead);
     const want = Math.max(1, Math.round((2+level) * (cols*rows)/70));
-    b.holeCells = dead.slice(0, Math.min(dead.length, want));
+    const b = {cols, rows, grid, spawnCells, goalCells, holeCells:dead.slice(0, Math.min(dead.length, want)), bug:null};
+    b.balls = spawnCells.map((_,i)=>({i,x:0,y:0,vx:0,vy:0,falling:0,done:false}));
     return b;
   }
+  // marble colors: steel first, then distinct tints so each marble matches its cup
+  const TINTS=['#c9cdd2','#e0915a','#5aa0e6','#7ccf6e','#e070b0'];
   function placeBoard(b, a){
     const aspect=b.cols/b.rows;
     let w=a.w, h=a.h;
     if(w/h > aspect) w=h*aspect; else h=w/aspect;
     b.ox = a.x+(a.w-w)/2; b.oy = a.y+(a.h-h)/2; b.W=w; b.H=h;
     const cell = b.cell = w/b.cols;
-    b.wallT=Math.max(3, cell*0.12); b.ballR=cell*0.26; b.holeR=cell*0.3;
+    b.wallT=Math.max(2.5, cell*0.12); b.ballR=cell*0.26; b.holeR=cell*0.3;
     const t=b.wallT, walls=b.walls=[];
     const add=(x,y,w,h)=>walls.push({x,y,w,h});
     for(let r=0;r<b.rows;r++)for(let c=0;c<b.cols;c++){
@@ -164,22 +242,32 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
       if(c===b.cols-1&&k.e) add(x+cell-t/2,y-t/2,t,cell+t);
     }
     b.holes=b.holeCells.map(([r,c])=>({x:(c+.5)*cell,y:(r+.5)*cell}));
-    b.start={x:cell/2,y:cell/2};
-    b.goal={x:(b.cols-.5)*cell,y:(b.rows-.5)*cell};
+    b.spawns=b.spawnCells.map(([r,c])=>({x:(c+.5)*cell,y:(r+.5)*cell}));
+    b.goals=b.goalCells.map(([r,c])=>({x:(c+.5)*cell,y:(r+.5)*cell}));
   }
-  function resetBall(b){ b.ball={x:b.start.x,y:b.start.y,vx:0,vy:0}; b.falling=0; }
+  function resetBall(b, ball){ const s=b.spawns[ball.i]; Object.assign(ball,{x:s.x,y:s.y,vx:0,vy:0,falling:0}); }
+  function boardDone(b){ return b.balls.every(m=>m.done); }
 
-  // ---------- challenge beetle ----------
-  // walks cell to cell along open passages, starting from the goal cup
-  function spawnBug(b){
-    const r=b.rows-1, c=b.cols-1;
-    b.bug={r,c,pr:-1,pc:-1,tr:r,tc:c,p:1,emerge:0,ang:-Math.PI*0.75,walk:0};
+  function newLevel(){
+    measure();
+    const n = split?2:1, as = areas(n);
+    boards = as.map(a=>{ const d=dimsFor(a,n); const b=makeBoard(d.cols,d.rows); placeBoard(b,a); b.balls.forEach(m=>resetBall(b,m)); if(challenge) spawnBug(b); return b; });
+    t0 = performance.now();
   }
-  function openNeighbors(b,r,c){
-    const k=b.grid[r][c], out=[];
-    if(!k.n) out.push([r-1,c]); if(!k.s) out.push([r+1,c]);
-    if(!k.e) out.push([r,c+1]); if(!k.w) out.push([r,c-1]);
-    return out;
+  function relayout(){
+    measure();
+    const as = areas(boards.length);
+    boards.forEach((b,i)=>{
+      const oldW=b.W, oldH=b.H;
+      placeBoard(b, as[i]);
+      b.balls.forEach(m=>{ m.x*=b.W/oldW; m.y*=b.H/oldH; });
+    });
+  }
+
+  // ---------- challenge snail ----------
+  function spawnBug(b){
+    const [r,c]=b.goalCells[Math.random()*b.goalCells.length|0];
+    b.bug={r,c,pr:-1,pc:-1,tr:r,tc:c,p:1,emerge:0,ang:-Math.PI*0.75,walk:0};
   }
   function bugPos(b){
     const g=b.bug, cell=b.cell, t=Math.min(1,g.p);
@@ -190,7 +278,6 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     const g=b.bug; if(!g) return;
     g.walk += dt;
     if(g.sinking){
-      // climbing down into a hole, then pop out of a random hole
       g.emerge -= dt/0.5;
       if(g.emerge<=0){
         const [hr,hc] = b.holeCells[Math.random()*b.holeCells.length|0];
@@ -199,39 +286,33 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
       return;
     }
     if(g.emerge<1){ g.emerge=Math.min(1,g.emerge+dt/0.8); return; }
-    const speed = 1.4 + Math.min(1.2, level*0.08); // cells per second
+    const speed = 1.4 + Math.min(1.2, level*0.08);
     g.p += speed*dt;
     while(g.p>=1){
       g.p-=1;
       g.pr=g.r; g.pc=g.c; g.r=g.tr; g.c=g.tc;
       if(g.fresh){ g.fresh=false; }
-      else if(b.holeCells.some(([hr,hc])=>hr===g.r&&hc===g.c)){
-        g.sinking=true; g.p=1; return;
-      }
-      let opts=openNeighbors(b,g.r,g.c);
+      else if(b.holeCells.some(([hr,hc])=>hr===g.r&&hc===g.c)){ g.sinking=true; g.p=1; return; }
+      let opts=openNeighbors(b.grid,g.r,g.c);
       if(opts.length>1) opts=opts.filter(([y,x])=>!(y===g.pr&&x===g.pc));
       const [nr,nc]=opts[Math.random()*opts.length|0];
       g.tr=nr; g.tc=nc;
       g.ang=Math.atan2(nr-g.r, nc-g.c);
     }
-    // touch check
-    if(b.done||b.falling) return;
     const q=bugPos(b);
-    if(Math.hypot(b.ball.x-q.x,b.ball.y-q.y) < b.ballR + b.cell*0.22) resetBall(b);
+    for(const m of b.balls){
+      if(m.done||m.falling) continue;
+      if(Math.hypot(m.x-q.x,m.y-q.y) < b.ballR + b.cell*0.22) resetBall(b,m);
+    }
   }
   function drawBug(b){
     const g=b.bug; if(!g) return;
     const q=bugPos(b), s=b.cell*0.2*(0.2+0.8*g.emerge);
     ctx.save(); ctx.translate(q.x,q.y); ctx.rotate(g.ang); ctx.globalAlpha=0.3+0.7*g.emerge;
-    // snail seen from above: soft body, coiled shell, two eye stalks
     const stretch = 1 + Math.sin(g.walk*8)*0.08;
     ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(s*0.1,s*0.3,s*1.5*stretch,s*0.75,0,0,7); ctx.fill();
-    // body
-    ctx.fillStyle='#d9b98a';
-    ctx.beginPath(); ctx.ellipse(s*0.05*stretch,0,s*1.45*stretch,s*0.42,0,0,7); ctx.fill();
-    ctx.fillStyle='#e8cfa4';
-    ctx.beginPath(); ctx.arc(s*1.25*stretch,0,s*0.38,0,7); ctx.fill();
-    // eye stalks
+    ctx.fillStyle='#d9b98a'; ctx.beginPath(); ctx.ellipse(s*0.05*stretch,0,s*1.45*stretch,s*0.42,0,0,7); ctx.fill();
+    ctx.fillStyle='#e8cfa4'; ctx.beginPath(); ctx.arc(s*1.25*stretch,0,s*0.38,0,7); ctx.fill();
     ctx.strokeStyle='#d9b98a'; ctx.lineWidth=Math.max(1.5,s*0.14); ctx.lineCap='round';
     const hx=s*1.35*stretch, wob=Math.sin(g.walk*5)*s*0.08;
     for(const side of [-1,1]){
@@ -239,7 +320,6 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
       ctx.beginPath(); ctx.moveTo(hx,side*s*0.12); ctx.lineTo(ex,ey); ctx.stroke();
       ctx.fillStyle='#2a1a10'; ctx.beginPath(); ctx.arc(ex,ey,s*0.13,0,7); ctx.fill();
     }
-    // shell
     const cx=-s*0.25, R=s*0.88;
     const sh=ctx.createRadialGradient(cx-R*0.3,-R*0.35,R*0.1,cx,0,R);
     sh.addColorStop(0,'#f2c46b'); sh.addColorStop(.6,'#c9772f'); sh.addColorStop(1,'#7a3e15');
@@ -255,31 +335,32 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     ctx.restore();
   }
 
-  function newLevel(){
-    measure();
-    const n = split?2:1, as = areas(n);
-    boards = as.map(a=>{ const d=dimsFor(a,n); const b=makeBoard(d.cols,d.rows,n); placeBoard(b,a); resetBall(b); if(challenge) spawnBug(b); return b; });
-    t0 = performance.now();
+  // ---------- tilt input ----------
+  // gravity direction in device axes; re-level takes the current hold as "flat"
+  let grav=null, baseGrav=null, frame=null;
+  function gravFrom(e){
+    const b=e.beta*Math.PI/180, g=e.gamma*Math.PI/180;
+    return [Math.cos(b)*Math.sin(g), Math.sin(b), Math.cos(b)*Math.cos(g)];
   }
-  function relayout(){
-    measure();
-    const as = areas(boards.length);
-    boards.forEach((b,i)=>{
-      const fx=b.ball.x/b.W, fy=b.ball.y/b.H;
-      placeBoard(b, as[i]); b.ball.x=fx*b.W; b.ball.y=fy*b.H;
-    });
+  function setLevel(){
+    if(!grav) return false;
+    baseGrav=grav.slice();
+    const n=baseGrav, dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    const proj=v=>{ const d=dot(v,n); const u=[v[0]-d*n[0],v[1]-d*n[1],v[2]-d*n[2]]; const L=Math.hypot(...u)||1; return u.map(x=>x/L); };
+    frame={u:proj([1,0,0]), v:proj([0,1,0])};
+    return true;
   }
-
-  // ---------- input ----------
   function onOrient(e){
-    if(e.beta==null) return;
+    if(e.beta==null||e.gamma==null) return;
+    grav=gravFrom(e);
+    if(!frame) setLevel();
+    const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    let x=dot(grav,frame.u), y=dot(grav,frame.v);
     const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
-    const bb=e.beta*Math.PI/180, g=e.gamma*Math.PI/180;
-    let x=Math.sin(g), y=Math.sin(bb);
     if(ang===90){[x,y]=[y,-x];} else if(ang===-90||ang===270){[x,y]=[-y,x];} else if(ang===180){x=-x;y=-y;}
-    rawTilt={x,y};
-    if(!base) base={x,y};
-    tilt={x:x-base.x,y:y-base.y};
+    // small dead zone so a level phone stays still
+    const dz=0.02; const fx=v=>Math.abs(v)<dz?0:v-Math.sign(v)*dz;
+    tilt={x:fx(x),y:fx(y)};
   }
   async function enableMotion(){
     try{
@@ -297,7 +378,6 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     }catch(e){ return false; }
   }
 
-  // drag fallback: drag anywhere on the stage like a joystick
   let drag=null;
   cv.addEventListener('pointerdown',e=>{ if(usingMotion) return; drag={x:e.clientX,y:e.clientY}; cv.setPointerCapture(e.pointerId); });
   cv.addEventListener('pointermove',e=>{ if(!drag) return;
@@ -309,32 +389,52 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 
   // ---------- physics ----------
   function stepBoard(b, dt){
-    if(b.done) return;
-    const ball=b.ball;
-    if(b.falling){ b.falling+=dt; if(b.falling>.45) resetBall(b); return; }
-    const G = b.cell*28;
-    ball.vx += clamp(tilt.x,-1,1)*G*dt;
-    ball.vy += clamp(tilt.y,-1,1)*G*dt;
-    const fr = Math.pow(0.35, dt); ball.vx*=fr; ball.vy*=fr;
-    const sub=4, R=b.ballR;
+    const G = b.cell*28*SPEED_MUL[settings.speed];
+    const fr = Math.pow(0.35, dt);
+    const R=b.ballR, sub=4;
+    const live=[];
+    for(const m of b.balls){
+      if(m.done) continue;
+      if(m.falling){ m.falling+=dt; if(m.falling>.45) resetBall(b,m); continue; }
+      m.vx += clamp(tilt.x,-1,1)*G*dt; m.vy += clamp(tilt.y,-1,1)*G*dt;
+      m.vx*=fr; m.vy*=fr;
+      live.push(m);
+    }
     for(let i=0;i<sub;i++){
-      ball.x+=ball.vx*dt/sub; ball.y+=ball.vy*dt/sub;
-      for(const w of b.walls){
-        const cx=clamp(ball.x,w.x,w.x+w.w), cy=clamp(ball.y,w.y,w.y+w.h);
-        let dx=ball.x-cx, dy=ball.y-cy; const d2=dx*dx+dy*dy;
-        if(d2<R*R){
-          let d=Math.sqrt(d2);
-          if(d<1e-6){dx=0;dy=-1;d=1;}
-          const nx=dx/d, ny=dy/d, pen=R-d;
-          ball.x+=nx*pen; ball.y+=ny*pen;
-          const vn=ball.vx*nx+ball.vy*ny;
-          if(vn<0){ ball.vx-=1.35*vn*nx; ball.vy-=1.35*vn*ny; }
+      for(const m of live){
+        m.x+=m.vx*dt/sub; m.y+=m.vy*dt/sub;
+        for(const w of b.walls){
+          const cx=clamp(m.x,w.x,w.x+w.w), cy=clamp(m.y,w.y,w.y+w.h);
+          let dx=m.x-cx, dy=m.y-cy; const d2=dx*dx+dy*dy;
+          if(d2<R*R){
+            let d=Math.sqrt(d2);
+            if(d<1e-6){dx=0;dy=-1;d=1;}
+            const nx=dx/d, ny=dy/d;
+            m.x+=nx*(R-d); m.y+=ny*(R-d);
+            const vn=m.vx*nx+m.vy*ny;
+            if(vn<0){ m.vx-=1.35*vn*nx; m.vy-=1.35*vn*ny; }
+          }
+        }
+      }
+      // marble-to-marble bumps
+      for(let a=0;a<live.length;a++)for(let c=a+1;c<live.length;c++){
+        const p=live[a], q=live[c];
+        let dx=q.x-p.x, dy=q.y-p.y, d=Math.hypot(dx,dy);
+        if(d<2*R){
+          if(d<1e-6){dx=1;dy=0;d=1;}
+          const nx=dx/d, ny=dy/d, push=(2*R-d)/2;
+          p.x-=nx*push; p.y-=ny*push; q.x+=nx*push; q.y+=ny*push;
+          const rv=(q.vx-p.vx)*nx+(q.vy-p.vy)*ny;
+          if(rv<0){ const j=-0.9*rv; p.vx-=j*nx; p.vy-=j*ny; q.vx+=j*nx; q.vy+=j*ny; }
         }
       }
     }
-    ball.x=clamp(ball.x,R,b.W-R); ball.y=clamp(ball.y,R,b.H-R);
-    for(const h of b.holes){ if(Math.hypot(ball.x-h.x,ball.y-h.y)<b.holeR*0.8){ b.falling=0.0001; ball.x=h.x; ball.y=h.y; ball.vx=ball.vy=0; } }
-    if(Math.hypot(ball.x-b.goal.x,ball.y-b.goal.y)<b.holeR*0.8){ b.done=true; ball.x=b.goal.x; ball.y=b.goal.y; ball.vx=ball.vy=0; }
+    for(const m of live){
+      m.x=clamp(m.x,R,b.W-R); m.y=clamp(m.y,R,b.H-R);
+      for(const h of b.holes){ if(Math.hypot(m.x-h.x,m.y-h.y)<b.holeR*0.8){ m.falling=0.0001; m.x=h.x; m.y=h.y; m.vx=m.vy=0; break; } }
+      const goal=b.goals[m.i];
+      if(!m.falling && Math.hypot(m.x-goal.x,m.y-goal.y)<b.holeR*0.8){ m.done=true; m.vx=m.vy=0; }
+    }
   }
   function step(dt){
     if(!usingMotion && !drag){
@@ -342,18 +442,19 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
       tilt={x:kx*.5,y:ky*.5};
     }
     boards.forEach(b=>{ stepBoard(b,dt); stepBug(b,dt); });
-    if(boards.every(b=>b.done)) win();
+    if(boards.every(boardDone)) win();
   }
 
   // ---------- results ----------
   const results=[];
   function win(){
-    results.unshift({lvl:level, n:boards.length, t:(performance.now()-t0)/1000});
+    const n=boards.length*settings.balls;
+    results.unshift({lvl:level, n, t:(performance.now()-t0)/1000});
     if(results.length>3) results.length=3;
     $('results').innerHTML='';
     for(const r of results){
       const li=document.createElement('li');
-      li.textContent=`L${r.lvl}${r.n>1?'×2':''}  ${r.t.toFixed(1)}s`;
+      li.textContent=`L${r.lvl}${r.n>1?'×'+r.n:''}  ${r.t.toFixed(1)}s`;
       $('results').appendChild(li);
     }
     level++;
@@ -362,10 +463,16 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
   }
 
   // ---------- drawing ----------
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function drawMarble(x,y,r,shadow,tint){
+    if(shadow){ ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x+r*.25,y+r*.35,r,r*.9,0,0,7); ctx.fill(); }
+    const bg=ctx.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r);
+    bg.addColorStop(0,'#ffffff'); bg.addColorStop(.35,tint||TINTS[0]); bg.addColorStop(1,'#3a3d42');
+    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+  }
   function drawBoard(b){
     ctx.save(); ctx.translate(b.ox,b.oy);
     const W=b.W, H=b.H;
-    // frame
     ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(-FRAME+2,-FRAME+8,W+FRAME*2,H+FRAME*2,10); ctx.fill();
     ctx.fillStyle='#3b2614'; roundRect(-FRAME,-FRAME,W+FRAME*2,H+FRAME*2,10); ctx.fill();
     ctx.save(); roundRect(0,0,W,H,6); ctx.clip();
@@ -374,31 +481,32 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
     ctx.strokeStyle='rgba(90,58,30,.12)'; ctx.lineWidth=1;
     for(let i=0;i<H;i+=7){ ctx.beginPath(); ctx.moveTo(0,i+Math.sin(i*.07)*3); ctx.bezierCurveTo(W*.3,i+4,W*.6,i-4,W,i+Math.cos(i*.05)*3); ctx.stroke(); }
-    // start ring
-    ctx.strokeStyle='rgba(90,58,30,.45)'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.arc(b.start.x,b.start.y,b.ballR*1.3,0,7); ctx.stroke(); ctx.setLineDash([]);
+    const multi=b.balls.length>1;
+    ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+    b.spawns.forEach((s,i)=>{ ctx.strokeStyle=multi?TINTS[i]:'rgba(90,58,30,.45)'; ctx.globalAlpha=multi?.7:1; ctx.beginPath(); ctx.arc(s.x,s.y,b.ballR*1.3,0,7); ctx.stroke(); });
+    ctx.setLineDash([]); ctx.globalAlpha=1;
     for(const h of b.holes){
       const hg=ctx.createRadialGradient(h.x,h.y-b.holeR*.3,1,h.x,h.y,b.holeR);
       hg.addColorStop(0,'#000'); hg.addColorStop(.8,'#1a100a'); hg.addColorStop(1,'#6b4626');
       ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(h.x,h.y,b.holeR,0,7); ctx.fill();
     }
-    ctx.fillStyle=b.done?'#2fa86a':'#1f6b43'; ctx.beginPath(); ctx.arc(b.goal.x,b.goal.y,b.holeR,0,7); ctx.fill();
-    ctx.strokeStyle='#e0b04a'; ctx.lineWidth=3; ctx.stroke();
+    b.goals.forEach((g,i)=>{
+      const filled=b.balls[i].done;
+      ctx.fillStyle=filled?'#2fa86a':'#1f6b43'; ctx.beginPath(); ctx.arc(g.x,g.y,b.holeR,0,7); ctx.fill();
+      ctx.strokeStyle=multi?TINTS[i]:'#e0b04a'; ctx.lineWidth=Math.max(2,b.cell*(multi?0.08:0.05)); ctx.stroke();
+    });
     ctx.fillStyle='rgba(0,0,0,.25)'; for(const w of b.walls) ctx.fillRect(w.x+2,w.y+3,w.w,w.h);
     ctx.fillStyle='#5a3a1e';         for(const w of b.walls) ctx.fillRect(w.x,w.y,w.w,w.h);
     ctx.fillStyle='rgba(255,220,170,.18)'; for(const w of b.walls) ctx.fillRect(w.x,w.y,w.w,Math.min(2,w.h));
     drawBug(b);
-    // ball
-    const ball=b.ball;
-    const s = b.falling ? Math.max(0.05,1-b.falling*2) : (b.done?0.85:1);
-    const r=b.ballR*s;
-    if(!b.falling&&!b.done){ ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(ball.x+r*.25,ball.y+r*.35,r,r*.9,0,0,7); ctx.fill(); }
-    const bg=ctx.createRadialGradient(ball.x-r*.35,ball.y-r*.4,r*.1,ball.x,ball.y,r);
-    bg.addColorStop(0,'#ffffff'); bg.addColorStop(.35,'#c9cdd2'); bg.addColorStop(1,'#4a4f56');
-    ctx.fillStyle=bg; ctx.beginPath(); ctx.arc(ball.x,ball.y,r,0,7); ctx.fill();
+    for(const m of b.balls){
+      const tint=multi?TINTS[m.i]:TINTS[0];
+      if(m.done){ const g=b.goals[m.i]; drawMarble(g.x,g.y,b.ballR*0.85,false,tint); continue; }
+      const s = m.falling ? Math.max(0.05,1-m.falling*2) : 1;
+      drawMarble(m.x,m.y,b.ballR*s,!m.falling,tint);
+    }
     ctx.restore(); ctx.restore();
   }
-  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
   function draw(){ ctx.clearRect(0,0,SW,SH); boards.forEach(drawBoard); }
 
   let last=performance.now();
@@ -410,6 +518,13 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
   }
 
   // ---------- controls ----------
+  let flashTimer=0;
+  function flash(msg){
+    const el=$('mode'), prev=usingMotion?'Tilt to steer':'No motion: drag to tilt';
+    el.textContent=msg; el.classList.add('flash');
+    clearTimeout(flashTimer);
+    flashTimer=setTimeout(()=>{ el.textContent=prev; el.classList.remove('flash'); },1400);
+  }
   let motionChecked=false;
   $('startBtn').addEventListener('click', async ()=>{
     try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{}); }catch(e){}
@@ -417,26 +532,43 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
       motionChecked=true;
       usingMotion = await enableMotion();
       if(usingMotion){ window.addEventListener('deviceorientation',onOrient); $('mode').textContent='Tilt to steer'; }
-      else { $('mode').textContent='No motion: drag to tilt'; $('calBtn').hidden=true; }
+      else { $('mode').textContent='No motion: drag to tilt'; }
     }
-    base=null;
+    frame=null; // level to however the phone is held now
     sheet.hidden=true; running=true; t0=performance.now();
   });
-  $('calBtn').addEventListener('click',()=>{ base={...rawTilt}; tilt={x:0,y:0}; });
+  $('calBtn').addEventListener('click',()=>{
+    if(!usingMotion){ flash(motionChecked?'Tilt sensor not available':'Tap Start first'); return; }
+    if(setLevel()){
+      tilt={x:0,y:0};
+      boards.forEach(b=>b.balls.forEach(m=>{ m.vx=0; m.vy=0; }));
+      flash('Leveled to current position');
+    } else flash('Waiting for tilt sensor…');
+  });
   $('splitBtn').addEventListener('click',()=>{
     split=!split;
     $('splitBtn').setAttribute('aria-pressed', String(split));
     $('splitBtn').textContent = split ? 'Single' : 'Split';
     newLevel();
   });
-
   $('chalBtn').addEventListener('click',()=>{
     challenge=!challenge;
     $('chalBtn').setAttribute('aria-pressed', String(challenge));
     boards.forEach(b=>{ if(challenge) spawnBug(b); else b.bug=null; });
   });
+  for(const k of ['skill','speed','balls']){
+    for(const [suf,d] of [['Dn',-1],['Up',1]]){
+      $(k+suf).addEventListener('click',()=>{
+        const v=clamp(settings[k]+d, ...LIMITS[k]);
+        if(v===settings[k]) return;
+        settings[k]=v; saveSettings(); showSettings();
+        if(k!=='speed') newLevel();   // new maze for skill or marble count
+      });
+    }
+  }
 
   addEventListener('resize',relayout);
+  showSettings();
   newLevel();
   requestAnimationFrame(loop);
 })();
