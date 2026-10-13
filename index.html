@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -22,6 +23,8 @@
 [hidden]{display:none!important}
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-user-select:none;user-select:none;touch-action:none}
+/* screen lock: when the phone auto-rotates, the app counter-rotates so the game stays put */
+.app.turned{position:fixed;left:50%;top:50%;transform-origin:50% 50%}
 .app{height:100%;display:flex;flex-direction:column;gap:8px;padding-block:10px;padding-inline:16px;box-sizing:border-box}
 .hud{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .hud h1{font-family:var(--display);font-weight:700;font-size:1.35rem;margin:0;letter-spacing:.01em}
@@ -65,7 +68,7 @@ button:disabled{opacity:.35}
 <div class="app">
   <div class="hud">
     <div class="left">
-      <h1>Tilt Maze <span class="ver">v1.0</span></h1>
+      <h1>Tilt Maze <span class="ver">v1.1</span></h1>
       <span id="mode">Tilt to steer</span>
     </div>
     <div class="right">
@@ -78,7 +81,7 @@ button:disabled{opacity:.35}
     <div class="sheet" id="sheet">
       <div class="card">
         <h2>Roll the marbles home</h2>
-        <p>Hold your phone the way you want to play and tilt it to steer every marble into the green cup. Avoid the holes. Set skill, speed and marble count below.</p>
+        <p>Hold your phone the way you want to play and tilt it to steer every marble into the green cup. The screen stays locked to that hold. Avoid the holes. Set skill, speed and marble count below.</p>
         <button id="startBtn">Start</button>
       </div>
     </div>
@@ -151,8 +154,8 @@ button:disabled{opacity:.35}
 
   // ---------- areas ----------
   function measure(){
-    const r = stage.getBoundingClientRect();
-    SW = r.width; SH = r.height;
+    // layout size (not the on-screen box, which swaps when the app is counter-rotated)
+    SW = stage.clientWidth; SH = stage.clientHeight;
     const dpr = window.devicePixelRatio||1;
     cv.width = SW*dpr; cv.height = SH*dpr;
     ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -342,6 +345,45 @@ button:disabled{opacity:.35}
   // ---------- tilt input ----------
   // gravity direction in device axes; re-level takes the current hold as "flat"
   let grav=null, baseGrav=null, frame=null;
+
+  // ---------- screen lock ----------
+  // Lock the game to the orientation held at Start / Re-level. If the phone auto-rotates
+  // anyway, counter-rotate the whole app so nothing flips.
+  const appEl = document.querySelector('.app');
+  let lockAng = null;
+  function screenAng(){
+    let a = (screen.orientation && typeof screen.orientation.angle==='number') ? screen.orientation.angle
+          : (typeof window.orientation==='number' ? window.orientation : 0);
+    a = ((a%360)+360)%360; return a===270 ? -90 : a;
+  }
+  function applyLock(){
+    let d = lockAng==null ? 0 : screenAng()-lockAng;
+    d = ((d%360)+360)%360; if(d>180) d-=360;          // -90, 0, 90 or 180
+    if(d===0){
+      appEl.classList.remove('turned'); appEl.style.cssText='';
+    } else {
+      const side = Math.abs(d)===90;
+      appEl.classList.add('turned');
+      appEl.style.width  = side ? innerHeight+'px' : innerWidth+'px';
+      appEl.style.height = side ? innerWidth+'px'  : innerHeight+'px';
+      appEl.style.transform = `translate(-50%,-50%) rotate(${-d}deg)`;
+    }
+  }
+  function lockToNow(){
+    lockAng = screenAng(); applyLock();
+    // where the browser allows it, also ask for a real orientation lock
+    try{
+      const so=screen.orientation; if(!so||!so.lock) return;
+      const type = Math.abs(lockAng)===90 ? 'landscape' : 'portrait';
+      const go=()=>so.lock(type).catch(()=>{});
+      if(!document.fullscreenElement && document.documentElement.requestFullscreen)
+        document.documentElement.requestFullscreen({navigationUI:'hide'}).then(go,()=>{});
+      else go();
+    }catch(e){}
+  }
+  function onTurn(){ applyLock(); requestAnimationFrame(()=>relayout()); }
+  addEventListener('orientationchange', ()=>setTimeout(onTurn,60));
+  if(screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', ()=>setTimeout(onTurn,60));
   function gravFrom(e){
     const b=e.beta*Math.PI/180, g=e.gamma*Math.PI/180;
     return [Math.cos(b)*Math.sin(g), Math.sin(b), Math.cos(b)*Math.cos(g)];
@@ -360,7 +402,8 @@ button:disabled{opacity:.35}
     if(!frame) setLevel();
     const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
     let x=dot(grav,frame.u), y=dot(grav,frame.v);
-    const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    // steer relative to the locked orientation, not whatever the phone auto-rotated to
+    const ang = lockAng==null ? screenAng() : lockAng;
     if(ang===90){[x,y]=[y,-x];} else if(ang===-90||ang===270){[x,y]=[-y,x];} else if(ang===180){x=-x;y=-y;}
     // small dead zone so a level phone stays still
     const dz=0.02; const fx=v=>Math.abs(v)<dz?0:v-Math.sign(v)*dz;
@@ -538,6 +581,7 @@ button:disabled{opacity:.35}
   let motionChecked=false;
   $('startBtn').addEventListener('click', async ()=>{
     try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{}); }catch(e){}
+    lockToNow();
     if(!motionChecked){
       motionChecked=true;
       usingMotion = await enableMotion();
@@ -549,6 +593,7 @@ button:disabled{opacity:.35}
   });
   $('calBtn').addEventListener('click',()=>{
     if(!usingMotion){ flash(motionChecked?'Tilt sensor not available':'Tap Start first'); return; }
+    if(lockAng!==screenAng()){ lockToNow(); relayout(); }   // adopt the way the phone is held now
     if(setLevel()){
       tilt={x:0,y:0};
       boards.forEach(b=>b.balls.forEach(m=>{ m.vx=0; m.vy=0; }));
@@ -576,11 +621,13 @@ button:disabled{opacity:.35}
     }
   }
 
-  addEventListener('resize',relayout);
+  addEventListener('resize',()=>{ applyLock(); relayout(); });
   showSettings();
   newLevel();
   requestAnimationFrame(loop);
 })();
 </script>
+
+</body></html>
 
 </body></html>
